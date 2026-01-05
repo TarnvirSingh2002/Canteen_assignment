@@ -1,18 +1,59 @@
-import { sql } from "drizzle-orm";
-import { pgTable, text, varchar } from "drizzle-orm/pg-core";
+import { pgTable, text, serial, integer, timestamp } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
+import { relations } from "drizzle-orm";
 
-export const users = pgTable("users", {
-  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
-  username: text("username").notNull().unique(),
-  password: text("password").notNull(),
+export const snacks = pgTable("snacks", {
+  id: serial("id").primaryKey(),
+  name: text("name").notNull(),
+  price: integer("price").notNull(), // in cents
 });
 
-export const insertUserSchema = createInsertSchema(users).pick({
-  username: true,
-  password: true,
+export const students = pgTable("students", {
+  id: serial("id").primaryKey(),
+  name: text("name").notNull(),
+  referralCode: text("referral_code").notNull().unique(),
+  totalSpent: integer("total_spent").default(0).notNull(),
 });
 
-export type InsertUser = z.infer<typeof insertUserSchema>;
-export type User = typeof users.$inferSelect;
+export const orders = pgTable("orders", {
+  id: serial("id").primaryKey(),
+  studentId: integer("student_id").references(() => students.id).notNull(),
+  snackId: integer("snack_id").references(() => snacks.id).notNull(),
+  quantity: integer("quantity").notNull(),
+  amount: integer("amount").notNull(), // total cost in cents
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
+// Relations
+export const studentsRelations = relations(students, ({ many }) => ({
+  orders: many(orders),
+}));
+
+export const snacksRelations = relations(snacks, ({ many }) => ({
+  orders: many(orders),
+}));
+
+export const ordersRelations = relations(orders, ({ one }) => ({
+  student: one(students, {
+    fields: [orders.studentId],
+    references: [students.id],
+  }),
+  snack: one(snacks, {
+    fields: [orders.snackId],
+    references: [snacks.id],
+  }),
+}));
+
+// Schemas
+export const insertSnackSchema = createInsertSchema(snacks).omit({ id: true });
+export const insertStudentSchema = createInsertSchema(students).omit({ id: true, totalSpent: true, referralCode: true });
+export const insertOrderSchema = createInsertSchema(orders).omit({ id: true, createdAt: true, amount: true });
+
+// Types
+export type Snack = typeof snacks.$inferSelect;
+export type InsertSnack = z.infer<typeof insertSnackSchema>;
+export type Student = typeof students.$inferSelect;
+export type InsertStudent = z.infer<typeof insertStudentSchema>;
+export type Order = typeof orders.$inferSelect;
+export type InsertOrder = z.infer<typeof insertOrderSchema>;
