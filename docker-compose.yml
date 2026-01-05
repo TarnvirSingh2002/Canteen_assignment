@@ -1,0 +1,18 @@
+version: '3.8'
+
+services:
+  app:
+    build: .
+    ports:
+      - "5000:5000"
+    environment:
+      - DATABASE_URL=${DATABASE_URL}
+      - NODE_ENV=production
+    restart: always
+
+  # Note: PostgreSQL is usually managed by Replit, but for local Docker testing:
+  # db:
+  #   image: postgres:15
+  #   environment:
+  #     POSTGRES_PASSWORD: password
+  #     POSTGRES_DB: canteen
