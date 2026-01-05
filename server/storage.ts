@@ -1,90 +1,60 @@
-import { db } from "./db";
-import {
-  snacks,
-  students,
-  orders,
-  type InsertStudent,
-  type InsertOrder,
-  type Student,
-  type Snack,
-  type Order,
-} from "@shared/schema";
-import { eq, desc } from "drizzle-orm";
+import { Snack, Student, Order, connectDB } from "./mongodb";
 import { randomBytes } from "crypto";
 
 export interface IStorage {
-  getSnacks(): Promise<Snack[]>;
-  getStudents(): Promise<Student[]>;
-  getStudent(id: number): Promise<(Student & { orders: (Order & { snack: Snack })[] }) | undefined>;
-  createStudent(student: InsertStudent): Promise<Student>;
-  createOrder(order: InsertOrder): Promise<Order>;
+  getSnacks(): Promise<any[]>;
+  getStudents(): Promise<any[]>;
+  getStudent(id: string): Promise<any>;
+  createStudent(student: any): Promise<any>;
+  createOrder(order: any): Promise<any>;
   seedSnacks(): Promise<void>;
 }
 
-export class DatabaseStorage implements IStorage {
-  async getSnacks(): Promise<Snack[]> {
-    return await db.select().from(snacks);
+export class MongoStorage implements IStorage {
+  constructor() {
+    connectDB();
   }
 
-  async getStudents(): Promise<Student[]> {
-    return await db.select().from(students);
+  async getSnacks(): Promise<any[]> {
+    return await Snack.find({});
   }
 
-  async getStudent(id: number): Promise<(Student & { orders: (Order & { snack: Snack })[] }) | undefined> {
-    const student = await db.query.students.findFirst({
-      where: eq(students.id, id),
-      with: {
-        orders: {
-          with: { snack: true },
-          orderBy: [desc(orders.createdAt)],
-        },
-      },
-    });
-    return student;
+  async getStudents(): Promise<any[]> {
+    return await Student.find({});
   }
 
-  async createStudent(insertStudent: InsertStudent): Promise<Student> {
-    // Generate a simple referral code
+  async getStudent(id: string): Promise<any> {
+    const student = await Student.findById(id).lean();
+    if (!student) return undefined;
+    const orders = await Order.find({ studentId: id }).populate('snackId').lean();
+    return { ...student, orders: orders.map(o => ({ ...o, snack: o.snackId })) };
+  }
+
+  async createStudent(insertStudent: any): Promise<any> {
     const referralCode = `REF-${randomBytes(4).toString("hex").toUpperCase()}`;
-    const [student] = await db
-      .insert(students)
-      .values({ ...insertStudent, referralCode })
-      .returning();
-    return student;
+    const student = new Student({ ...insertStudent, referralCode });
+    return await student.save();
   }
 
-  async createOrder(insertOrder: InsertOrder): Promise<Order> {
-    // 1. Get the snack to calculate amount
-    const [snack] = await db.select().from(snacks).where(eq(snacks.id, insertOrder.snackId));
+  async createOrder(insertOrder: any): Promise<any> {
+    const snack = await Snack.findById(insertOrder.snackId);
     if (!snack) throw new Error("Snack not found");
 
     const amount = snack.price * insertOrder.quantity;
+    const order = new Order({ ...insertOrder, amount });
+    await order.save();
 
-    // 2. Create order
-    const [order] = await db
-      .insert(orders)
-      .values({
-        ...insertOrder,
-        amount,
-      })
-      .returning();
-
-    // 3. Update student total spent
-    const [student] = await db.select().from(students).where(eq(students.id, insertOrder.studentId));
-    if (student) {
-      await db
-        .update(students)
-        .set({ totalSpent: (student.totalSpent || 0) + amount })
-        .where(eq(students.id, insertOrder.studentId));
-    }
+    await Student.findByIdAndUpdate(insertOrder.studentId, {
+      $inc: { totalSpent: amount }
+    });
 
     return order;
   }
 
   async seedSnacks(): Promise<void> {
-    const existing = await this.getSnacks();
-    if (existing.length === 0) {
-      await db.insert(snacks).values([
+    const count = await Snack.countDocuments();
+    if (count === 0) {
+      await Snack.insertMany([
         { name: "Potato Chips", price: 150 },
         { name: "Soda Can", price: 200 },
         { name: "Chocolate Bar", price: 125 },
@@ -95,4 +65,4 @@ export class DatabaseStorage implements IStorage {
   }
 }
 
-export const storage = new DatabaseStorage();
+export const storage = new MongoStorage();
