@@ -20,7 +20,7 @@ export async function registerRoutes(
   });
 
   app.get(api.students.get.path, async (req, res) => {
-    const student = await storage.getStudent(Number(req.params.id));
+    const student = await storage.getStudent(String(req.params.id));
     if (!student) {
       return res.status(404).json({ message: 'Student not found' });
     }

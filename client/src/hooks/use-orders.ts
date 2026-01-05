@@ -5,8 +5,8 @@ import { z } from "zod";
 
 // Helper to handle form data coercion since JSON doesn't preserve types
 const orderInputSchema = api.orders.create.input.extend({
-  studentId: z.coerce.number(),
-  snackId: z.coerce.number(),
+  studentId: z.coerce.string(),
+  snackId: z.coerce.string(),
   quantity: z.coerce.number(),
 });
 

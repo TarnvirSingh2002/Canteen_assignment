@@ -13,7 +13,7 @@ export function useStudents() {
   });
 }
 
-export function useStudent(id: number) {
+export function useStudent(id: string) {
   return useQuery({
     queryKey: [api.students.get.path, id],
     queryFn: async () => {

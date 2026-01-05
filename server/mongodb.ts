@@ -1,16 +1,12 @@
 import mongoose from "mongoose";
 
-if (!process.env.MONGODB_URI) {
-  throw new Error("MONGODB_URI is not defined");
-}
-
 export const connectDB = async () => {
   try {
-    await mongoose.connect(process.env.MONGODB_URI);
+    await mongoose.connect("mongodb://127.0.0.1:27017/canteen");
     console.log("MongoDB connected");
   } catch (err) {
     console.error("MongoDB connection error:", err);
-    process.env.MONGODB_URI = ""; // Clear so it doesn't keep retrying with bad URI
+    // process.env.MONGODB_URI = ""; // Clear so it doesn't keep retrying with bad URI
   }
 };
 

@@ -7,7 +7,7 @@ import { format } from "date-fns";
 
 export default function StudentDetails() {
   const [, params] = useRoute("/students/:id");
-  const id = params ? parseInt(params.id) : 0;
+  const id = params ? String(params.id) : "";
   const { data: student, isLoading, error } = useStudent(id);
 
   if (isLoading) {
